@@ -13,8 +13,8 @@ BASE = "https://qyapi.weixin.qq.com/cgi-bin"
 MODE = 1  # 1 = 新建并存储；0 = 刷新 registry 里所有表的ID并打印变更
 
 # MODE=1 时使用
-DOC_NAME = "产品名称命名"
-SHEET_TITLES = ["信息表", "菜品价格", "员工信息地址"]
+DOC_NAME = "色粉使用记录表"
+SHEET_TITLES = ["明细", "最新产品"]
 
 # MODE=0 时可选：不填=自动刷新 registry 里全部 docid；填了=只刷新该 docid
 TARGET_DOCID = ""

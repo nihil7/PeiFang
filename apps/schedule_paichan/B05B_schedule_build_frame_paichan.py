@@ -11,16 +11,23 @@ import sys
 import json
 from datetime import datetime, timedelta, date
 from typing import Dict, List, Optional, Tuple
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Side, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from peifang_core.common import ROOT_DIR
+from peifang_core.schedule_web import render_schedule_html
 
 
 # =========================
 # 配置区（只改这里）
 # =========================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = str(ROOT_DIR)
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 
 AUTO_LATEST = True
@@ -525,10 +532,16 @@ def main():
 
     build_frame_xlsx(dates, machines, machine_lanes, col_width_map, out_xlsx)
     build_layout_json(dates, machines, machine_lanes, win_s, win_e, out_layout)
+    out_html = os.path.join(OUTPUT_DIR, f"schedule_web_{ts}.html")
+    with open(out_layout, "r", encoding="utf-8") as f:
+        layout_payload = json.load(f)
+    layout_payload["today"] = datetime.now().date().isoformat()
+    render_schedule_html(layout_payload, out_html)
 
     # 打印预览（少量）
     print(f"OK: {out_xlsx}")
     print(f"layout: {out_layout}")
+    print(f"web: {out_html}")
     print(f"win: {win_s} ~ {win_e} | days={len(dates)} | machines={len(machines)} | tasks_in_win={len(tasks_win)}")
     head = sorted(tasks_win, key=lambda x: (x["machine"], x["start_ms"], x["end_ms"]))[:PRINT_FIRST_N]
     for i, t in enumerate(head, 1):

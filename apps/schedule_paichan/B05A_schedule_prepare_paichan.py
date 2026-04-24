@@ -14,6 +14,13 @@ import math
 import unicodedata
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from peifang_core.common import ROOT_DIR
 
 try:
     from zoneinfo import ZoneInfo
@@ -25,7 +32,7 @@ except Exception:
 # =========================
 # 配置区（只改这里）
 # =========================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = str(ROOT_DIR)
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 
 AUTO_LATEST = True

@@ -13,13 +13,22 @@ import sys
 import json
 import re
 from typing import Optional, Tuple, Dict, List
+from datetime import datetime
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from peifang_core.common import ROOT_DIR
+from peifang_core.schedule_web import render_schedule_html
 
 # =========================
 # 配置区（只改这里）
 # =========================
 
 # 项目根目录（当前脚本所在目录）
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = str(ROOT_DIR)
 
 # 输出目录（layout/json、框架xlsx都在这里）
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
@@ -367,6 +376,12 @@ def main():
 
     with open(layout_path, "r", encoding="utf-8") as f:
         layout = json.load(f)
+    layout["today"] = datetime.now().date().isoformat()
+    html_path = os.path.join(
+        OUTPUT_DIR,
+        os.path.basename(layout_path).replace("排产_layout_", "schedule_web_").replace(".json", ".html"),
+    )
+    render_schedule_html(layout, html_path)
 
     items = layout.get("items", [])
     if not items:
@@ -582,6 +597,7 @@ def main():
 
     print(f"OK: 已填充卡片并保存：{frame_path}")
     print(f"layout: {layout_path}")
+    print(f"web: {html_path}")
 
 
 if __name__ == "__main__":

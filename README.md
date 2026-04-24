@@ -1,96 +1,146 @@
-# 配方排产项目
+# PeiFang PaiChan
 
-这个仓库保留脚本代码，但不会上传真实密钥、生产数据、业务 CSV，或本地运行生成的注册表与输出文件。
+This repository is now organized for direct GitHub cloning and local use.
+The structure follows three main groups:
 
-## 仓库里保留什么
+- WeCom smart-sheet sync and post-processing
+- Feishu bitable sync and post-processing
+- Other functional utility scripts
 
-- Python 脚本与子项目源码
-- 可提交的配置样例
-- 最小示例数据，方便理解输入输出结构
-- 空目录占位，方便本地继续运行和让 Codex 识别目录用途
+No root-level compatibility wrappers are required for normal use. The old thin redirect files were moved into `legacy/compat_wrappers_archive/` for reference only.
 
-## 不会上传什么
+## Project Layout
 
-- `.env` 和任何子目录下的 `.env`
+### `apps/wecom_smartsheet_qiyeweixin/`
+
+WeCom smart-sheet related entry scripts:
+
+- `B00_wecom_verify_server_qiyeweixin.py`
+- `B01_wecom_smartsheet_registry_qiyeweixin.py`
+- `B02_wecom_smartsheet_sync_qiyeweixin.py`
+- `B03_wecom_smartsheet_templates_qiyeweixin.py`
+- `B04_wecom_smartsheet_read_qiyeweixin.py`
+
+### `apps/schedule_paichan/`
+
+Scheduling and post-processing scripts:
+
+- `B05A_schedule_prepare_paichan.py`
+- `B05B_schedule_build_frame_paichan.py`
+- `B06_schedule_fill_cards_paichan.py`
+
+The schedule pipeline can now generate:
+
+- Excel output
+- layout JSON
+- HTML schedule pages for later website integration
+
+### `apps/feishu_bitable_feishu/`
+
+Feishu bitable related entry scripts:
+
+- `F01_feishu_bitable_sync_feishu.py`
+- `F02_feishu_dashboard_id_feishu.py`
+- `F03_feishu_api_info_feishu.py`
+- `F04_feishu_long_conn_feishu.py`
+
+### `apps/feishu_local_bot_feishu/`
+
+Standalone Feishu local bot subproject retained as its own app area.
+
+### `tools/manufacturing_calc_gongju/`
+
+Other manufacturing and calculation scripts were preserved and grouped here:
+
+- `T010_extract_source_bom_goujianbili.py`
+- `T020_matrix_juzhen.py`
+- `T021_insert_structure_frame_zijianbiaozhun.py`
+- `T030_purchase_cost_caigou.py`
+- `T040_sales_profit_xiaoshou.py`
+
+### `tools/misc_gongju/`
+
+Other utility scripts and notes:
+
+- `M10_message_sender_main.py`
+- `M20_haier_ppt_gongju.py`
+- `M30_color_standard_juxian.py`
+- `M40_video_cut_jianji.py`
+- `M50_text_notes_tici.txt`
+
+### `peifang_core/`
+
+Shared core logic for sync and rendering:
+
+- `common.py`
+- `wecom.py`
+- `feishu.py`
+- `schedule_web.py`
+
+### `data/`
+
+Local sync cache directory.
+
+### `production_data_shengchan/`
+
+Local production data directory. Real business data is not committed.
+
+### `legacy/`
+
+Archived experiment scripts and compatibility wrappers kept only for reference.
+
+## Sync Strategy
+
+### WeCom smart-sheet sync
+
+- First run pulls full data and stores it locally
+- Later runs fetch the latest 50 records after time sorting
+- New records are merged into local cache
+- Periodic full refresh is supported to verify local accuracy
+
+Cache path:
+
+- `data/wecom/smartsheet/<docid>/<sheetid>/`
+
+### Feishu bitable sync
+
+- First run pulls full data and stores it locally
+- Later runs fetch the latest 50 records after time sorting
+- New records are merged into local cache
+- Periodic full refresh is supported to verify local accuracy
+
+Cache path:
+
+- `data/feishu/bitable/<app_token>/<table_id>/`
+
+## Quick Start
+
+1. Copy `.env.example` to `.env` and fill in credentials.
+2. Review sample config files and examples.
+3. Run the needed entry script from `apps/`.
+
+Example commands:
+
+```powershell
+python apps/wecom_smartsheet_qiyeweixin/B02_wecom_smartsheet_sync_qiyeweixin.py --help
+python apps/feishu_bitable_feishu/F01_feishu_bitable_sync_feishu.py --help
+python apps/schedule_paichan/B05A_schedule_prepare_paichan.py
+python apps/schedule_paichan/B05B_schedule_build_frame_paichan.py
+python apps/schedule_paichan/B06_schedule_fill_cards_paichan.py
+```
+
+## Git Safety
+
+These items are intentionally ignored:
+
+- `.env`
 - `smartsheet_registry.json`
-- `生产数据/` 里的真实导出文件
-- `output/` 下的运行结果
-- 根目录真实业务核对 CSV
+- local sync data under `data/`
+- runtime output under `output/`
+- real business data under `production_data_shengchan/`
 
-## 首次使用
+Safe examples are kept in:
 
-1. 安装依赖
-
-```bash
-pip install -r requirements.txt
-```
-
-2. 复制环境变量模板
-
-```bash
-copy .env.example .env
-```
-
-3. 按你的企业微信/飞书配置填写 `.env`
-
-4. 如果要跑企业微信智能表格脚本，先复制注册表样例
-
-```bash
-copy smartsheet_registry.example.json smartsheet_registry.json
-```
-
-5. 如果你只是想离线理解数据结构，把 `examples/output/` 里的样例复制到本地 `output/` 后再运行后续脚本
-
-## 推荐流程
-
-### 企业微信智能表格流程
-
-1. `B01 新建智能表.py`
-作用：创建或刷新智能表格，并在本地生成 `smartsheet_registry.json`
-
-2. `B02 fetcher获取数据.py`
-作用：根据 `smartsheet_registry.json` 拉取字段和记录，保存到 `output/`
-
-3. `B05A_prepare_data.py`
-作用：把 `output/*.records.raw.json` 处理成排产任务 JSON/CSV
-
-4. `B05B_build_frame.py`
-作用：根据 prepared 数据生成排产框架 Excel 和 layout JSON
-
-5. `B06_填充卡片.py`
-作用：基于 layout 和框架 Excel 插入卡片图形
-
-### 飞书相关脚本
-
-`飞书/` 和 `feishu_local_bot/` 是单独的飞书方向工具。`feishu_local_bot/` 已自带自己的 `.env.example` 和说明文档。
-
-## 样例文件
-
+- `examples/`
+- `.env.example`
 - `smartsheet_registry.example.json`
-示例版智能表格注册表，展示 `docid / sheet_id / sheets` 结构
-
-- `examples/output/生产任务排期__排产·统计总台账__sample.fields.json`
-示例字段结构
-
-- `examples/output/生产任务排期__排产·统计总台账__sample.records.raw.json`
-示例原始记录结构
-
-- `examples/output/tasks_prepared_sample.json`
-示例 prepared 数据结构
-
-- `examples/生产任务排期_提取任务.sample.csv`
-示例核对 CSV
-
-## 本地目录约定
-
-- `生产数据/`
-真实导出数据目录，不进仓库；仓库里只保留占位说明文件
-
-- `output/`
-运行产物目录，不进仓库
-
-## 给 Codex 的约定
-
-- 需要真实运行企业微信相关脚本时，默认读取本地 `.env` 与 `smartsheet_registry.json`
-- 需要理解数据结构、补脚本或改文档时，优先读取 `examples/` 中的样例文件
-- 不要把 `生产数据/`、`output/`、真实 `.env`、真实 `smartsheet_registry.json` 提交到 Git

@@ -4,8 +4,10 @@
 **/.env
 **/.env.*
 !**/.env.example
+
 generated_env.txt
 smartsheet_registry.json
+production_task_schedule_extract.csv
 生产任务排期_提取任务.csv
 
 __pycache__/
@@ -17,6 +19,11 @@ output/
 !examples/
 !examples/output/
 !examples/output/**
-生产数据/*
-!生产数据/.gitkeep
-!生产数据/README.sample.md
+
+data/*
+!data/.gitkeep
+!data/README.sample.md
+
+production_data_shengchan/*
+!production_data_shengchan/.gitkeep
+!production_data_shengchan/README.sample.md
