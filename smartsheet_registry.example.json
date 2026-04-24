@@ -1,0 +1,44 @@
+{
+  "docs": {
+    "sample_docid_production_schedule": {
+      "docid": "sample_docid_production_schedule",
+      "doc_name": "生产任务排期",
+      "url": "https://doc.weixin.qq.com/smartsheet/s3_example",
+      "admin_userid": "your_admin_userid",
+      "created_at": "2026-01-14 16:45:40",
+      "last_sync_at": "2026-04-24 09:00:00",
+      "sheets": {
+        "sample_sheet_main": {
+          "sheet_id": "sample_sheet_main",
+          "title": "排产·统计总台账",
+          "index": "",
+          "first_seen_at": "2026-01-14 16:45:41",
+          "last_seen_at": "2026-04-24 09:00:00",
+          "missing": false,
+          "missing_since": "",
+          "raw": {
+            "sheet_id": "sample_sheet_main",
+            "title": "排产·统计总台账",
+            "is_visible": true,
+            "type": "smartsheet"
+          }
+        },
+        "sample_sheet_specs": {
+          "sheet_id": "sample_sheet_specs",
+          "title": "标准型号规格&月统计",
+          "index": "",
+          "first_seen_at": "2026-01-14 16:45:41",
+          "last_seen_at": "2026-04-24 09:00:00",
+          "missing": false,
+          "missing_since": "",
+          "raw": {
+            "sheet_id": "sample_sheet_specs",
+            "title": "标准型号规格&月统计",
+            "is_visible": true,
+            "type": "smartsheet"
+          }
+        }
+      }
+    }
+  }
+}

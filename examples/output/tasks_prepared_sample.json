@@ -1,0 +1,82 @@
+{
+  "generated_at": "2026-04-24T09:00:00",
+  "records_source": "生产任务排期__排产·统计总台账__sample.records.raw.json",
+  "fields_source": "生产任务排期__排产·统计总台账__sample.fields.json",
+  "task_count": 3,
+  "min_date": "2026-01-15",
+  "max_date": "2026-01-17",
+  "tasks": [
+    {
+      "task_id": "rec_sample_001",
+      "record_id": "rec_sample_001",
+      "machine": "1#机",
+      "start_ms": 1768608000000,
+      "end_ms": 1768608000000,
+      "start_date": "2026-01-17",
+      "end_date": "2026-01-17",
+      "span_days_inclusive": 1,
+      "text_raw": "6237-PS挤板 18T 空白吨袋",
+      "line1": "6237-PS挤板",
+      "line2": "18T 空白吨袋",
+      "line3": "",
+      "len1": 11,
+      "len2": 12,
+      "len3": 0,
+      "max_len": 12,
+      "rgb": [
+        226,
+        230,
+        238
+      ],
+      "color_choice": "C2"
+    },
+    {
+      "task_id": "rec_sample_002",
+      "record_id": "rec_sample_002",
+      "machine": "2#机",
+      "start_ms": 1768521600000,
+      "end_ms": 1768608000000,
+      "start_date": "2026-01-16",
+      "end_date": "2026-01-17",
+      "span_days_inclusive": 2,
+      "text_raw": "ABS耐候浅云脂 9.15T 有字袋-有膜",
+      "line1": "ABS耐候浅云脂",
+      "line2": "9.15T 有字袋-有膜",
+      "line3": "",
+      "len1": 14,
+      "len2": 16,
+      "len3": 0,
+      "max_len": 16,
+      "rgb": [
+        228,
+        224,
+        221
+      ],
+      "color_choice": "C1"
+    },
+    {
+      "task_id": "rec_sample_003",
+      "record_id": "rec_sample_003",
+      "machine": "生产日记",
+      "start_ms": 1768435200000,
+      "end_ms": 1768435200000,
+      "start_date": "2026-01-15",
+      "end_date": "2026-01-15",
+      "span_days_inclusive": 1,
+      "text_raw": "样例日志 5.1吨 12小时 仅用于结构说明",
+      "line1": "样例日志",
+      "line2": "5.1吨 12小时",
+      "line3": "仅用于结构说明",
+      "len1": 8,
+      "len2": 11,
+      "len3": 14,
+      "max_len": 14,
+      "rgb": [
+        180,
+        180,
+        180
+      ],
+      "color_choice": ""
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "generated_at": "2026-04-24 09:00:00",
+  "doc_name": "生产任务排期",
+  "docid": "sample_docid_production_schedule",
+  "sheet_title": "排产·统计总台账",
+  "sheet_id": "sample_sheet_main",
+  "fields_count": 5,
+  "fields": [
+    {
+      "field_id": "fld_machine",
+      "title": "机台",
+      "type": "text",
+      "raw": {
+        "field_id": "fld_machine",
+        "title": "机台",
+        "type": "text",
+        "name": "机台"
+      }
+    },
+    {
+      "field_id": "fld_text",
+      "title": "甘特图文本",
+      "type": "text",
+      "raw": {
+        "field_id": "fld_text",
+        "title": "甘特图文本",
+        "type": "text",
+        "name": "甘特图文本"
+      }
+    },
+    {
+      "field_id": "fld_start",
+      "title": "开始日期",
+      "type": "date",
+      "raw": {
+        "field_id": "fld_start",
+        "title": "开始日期",
+        "type": "date",
+        "name": "开始日期"
+      }
+    },
+    {
+      "field_id": "fld_end",
+      "title": "结束日期",
+      "type": "date",
+      "raw": {
+        "field_id": "fld_end",
+        "title": "结束日期",
+        "type": "date",
+        "name": "结束日期"
+      }
+    },
+    {
+      "field_id": "fld_color_choice",
+      "title": "颜色选择",
+      "type": "singleSelect",
+      "raw": {
+        "field_id": "fld_color_choice",
+        "title": "颜色选择",
+        "type": "singleSelect",
+        "name": "颜色选择",
+        "property": {
+          "options": [
+            {
+              "key": "C1",
+              "text": "灰色",
+              "rgb": "180,180,180"
+            },
+            {
+              "key": "C2",
+              "text": "蓝灰",
+              "rgb": "226,230,238"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
