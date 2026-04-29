@@ -1,3 +1,9 @@
+"""
+程序简介：启动企业微信回调校验服务，用配置中的 token 和 AESKey 验证服务器回调。
+主要逻辑：读取所需配置或输入数据，执行本文件负责的处理步骤，并把结果写入本地文件或输出到命令行。
+配置说明：涉及企微或飞书凭证时，优先读取 PEIFANG_ENV_PROFILE、WECOM_ENV_PROFILE、FEISHU_ENV_PROFILE 选择公司配置档案；未设置时兼容原来的 .env 变量。
+"""
+
 # verify_server.py
 # 用途：通过企业微信“接收消息服务器URL”的 openapi 回调校验（GET）+ POST 解密并打印明文 XML
 # 原理：
@@ -5,19 +11,27 @@
 # - POST：解密加密 XML，打印 decrypted_xml，提取常见字段（DocId/SheetId 等）
 
 import os
+import sys
+from pathlib import Path
 from flask import Flask, request, make_response
-from dotenv import load_dotenv
 from wechatpy.enterprise.crypto import WeChatCrypto
 from wechatpy.exceptions import InvalidSignatureException
 import xml.etree.ElementTree as ET
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+os.chdir(PROJECT_ROOT)
+
+from peifang_core.common import get_profiled_env, load_dotenv_for_profile
+
 app = Flask(__name__)
 
 # ====== 配置区：从 .env 读取（你只要改 .env）======
-load_dotenv()
-CORP_ID = (os.getenv("WECOM_CORP_ID") or "").strip()
-TOKEN = (os.getenv("WECOM_CALLBACK_TOKEN") or "").strip()
-AES_KEY = (os.getenv("WECOM_CALLBACK_AESKEY") or "").strip()
+PROFILE = load_dotenv_for_profile("WECOM")
+CORP_ID = get_profiled_env("WECOM_CORP_ID", namespace="WECOM", profile=PROFILE)
+TOKEN = get_profiled_env("WECOM_CALLBACK_TOKEN", namespace="WECOM", profile=PROFILE)
+AES_KEY = get_profiled_env("WECOM_CALLBACK_AESKEY", namespace="WECOM", profile=PROFILE)
 # ====== 配置区结束 ======
 
 if not (CORP_ID and TOKEN and AES_KEY):

@@ -1,14 +1,7 @@
 """
-sender.py
-用途：把消息发送到多个企业微信群（群机器人 webhook）。
-
-你只需要改“配置区”，然后运行本文件即可：
-- MANUAL_MODE = True  ：发送你在这里写好的手动消息（可按群不同）
-- MANUAL_MODE = False ：调用 fetcher.py 生成“自动消息”，再发送
-
-注意：
-- 不会弹窗输入（没有 input）
-- webhook 从 .env 读取，方便你集中管理
+程序简介：读取企微 webhook 等配置，向指定群机器人发送本地消息。
+主要逻辑：读取所需配置或输入数据，执行本文件负责的处理步骤，并把结果写入本地文件或输出到命令行。
+配置说明：涉及企微或飞书凭证时，优先读取 PEIFANG_ENV_PROFILE、WECOM_ENV_PROFILE、FEISHU_ENV_PROFILE 选择公司配置档案；未设置时兼容原来的 .env 变量。
 """
 
 # ====== 配置区（你只要改这里）======
@@ -113,3 +106,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -1,3 +1,9 @@
+"""
+程序简介：根据标准化任务生成日期、机台和版式框架，为排产卡片填充做准备。
+主要逻辑：读取所需配置或输入数据，执行本文件负责的处理步骤，并把结果写入本地文件或输出到命令行。
+配置说明：涉及企微或飞书凭证时，优先读取 PEIFANG_ENV_PROFILE、WECOM_ENV_PROFILE、FEISHU_ENV_PROFILE 选择公司配置档案；未设置时兼容原来的 .env 变量。
+"""
+
 # B05B_build_frame.py
 # 功能：
 # 1) 读取 output 下最新 tasks_prepared_*.json
@@ -21,6 +27,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Side, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from peifang_core.common import ROOT_DIR
+from peifang_core.output_manager import archive_outputs, cleanup_output_history, publish_latest
 from peifang_core.schedule_web import render_schedule_html
 
 
@@ -37,8 +44,8 @@ TITLE = "机台×日期排程（框架）"
 
 # 时间窗：THIS_WEEK / ROLLING / CUSTOM
 DATE_PRESET = "ROLLING"
-PAST_DAYS = 2
-FUTURE_DAYS = 10
+PAST_DAYS = 5
+FUTURE_DAYS = 3
 START_DATE = None  # "2026-01-05" 或 None
 END_DATE = None    # "2026-01-20" 或 None
 MAX_DAYS = 31
@@ -89,13 +96,23 @@ PRINT_FIRST_N = 20
 
 
 def pick_latest_prepared(output_dir: str) -> Optional[str]:
+    latest_path = os.path.join(output_dir, "latest", "tasks_prepared.json")
+    if os.path.exists(latest_path):
+        return latest_path
+
     if not os.path.isdir(output_dir):
         return None
-    files = [f for f in os.listdir(output_dir) if f.startswith("tasks_prepared_") and f.endswith(".json")]
-    if not files:
+    candidates: List[str] = []
+    for search_dir in [output_dir, os.path.join(output_dir, "archive")]:
+        if not os.path.isdir(search_dir):
+            continue
+        for fn in os.listdir(search_dir):
+            if fn.startswith("tasks_prepared_") and fn.endswith(".json"):
+                candidates.append(os.path.join(search_dir, fn))
+    if not candidates:
         return None
-    files.sort(key=lambda fn: os.path.getmtime(os.path.join(output_dir, fn)), reverse=True)
-    return os.path.join(output_dir, files[0])
+    candidates.sort(key=lambda path: os.path.getmtime(path), reverse=True)
+    return candidates[0]
 
 
 def parse_ymd(x: Optional[str]) -> Optional[date]:
@@ -537,11 +554,32 @@ def main():
         layout_payload = json.load(f)
     layout_payload["today"] = datetime.now().date().isoformat()
     render_schedule_html(layout_payload, out_html)
+    latest = publish_latest(
+        {
+            "排产_框架.xlsx": out_xlsx,
+            "排产_layout.json": out_layout,
+            "schedule_web.html": out_html,
+        },
+        OUTPUT_DIR,
+    )
+    archived = archive_outputs(
+        {
+            "排产_框架.xlsx": out_xlsx,
+            "排产_layout.json": out_layout,
+            "schedule_web.html": out_html,
+        },
+        OUTPUT_DIR,
+    )
+    removed = cleanup_output_history(OUTPUT_DIR)
 
     # 打印预览（少量）
     print(f"OK: {out_xlsx}")
     print(f"layout: {out_layout}")
     print(f"web: {out_html}")
+    print(f"latest: {latest.get('schedule_web.html', '')}")
+    print(f"archive: {archived.get('schedule_web.html', '')}")
+    if removed:
+        print(f"cleanup_removed={len(removed)}")
     print(f"win: {win_s} ~ {win_e} | days={len(dates)} | machines={len(machines)} | tasks_in_win={len(tasks_win)}")
     head = sorted(tasks_win, key=lambda x: (x["machine"], x["start_ms"], x["end_ms"]))[:PRINT_FIRST_N]
     for i, t in enumerate(head, 1):

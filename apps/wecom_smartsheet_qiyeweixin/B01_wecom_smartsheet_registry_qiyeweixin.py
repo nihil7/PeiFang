@@ -1,11 +1,26 @@
-import os
+"""
+程序简介：整理企业微信智能表格登记信息，生成本地 smartsheet_registry 供同步脚本选择表格。
+主要逻辑：读取所需配置或输入数据，执行本文件负责的处理步骤，并把结果写入本地文件或输出到命令行。
+配置说明：涉及企微或飞书凭证时，优先读取 PEIFANG_ENV_PROFILE、WECOM_ENV_PROFILE、FEISHU_ENV_PROFILE 选择公司配置档案；未设置时兼容原来的 .env 变量。
+"""
+
 import json
+import os
+import sys
 import time
 import requests
 from datetime import datetime
-from dotenv import load_dotenv
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+os.chdir(PROJECT_ROOT)
+
+from peifang_core.common import get_profiled_env, load_dotenv_for_profile
 
 BASE = "https://qyapi.weixin.qq.com/cgi-bin"
+ACTIVE_PROFILE = ""
 
 # ==========================================================
 # 0) 配置区（你只需要改这里）
@@ -39,7 +54,7 @@ SLEEP_SECONDS = 0.2
 # =========================
 def must_env(key: str) -> str:
     """强制读取 .env（为空就报错）。"""
-    v = (os.getenv(key) or "").strip()
+    v = get_profiled_env(key, namespace="WECOM", profile=ACTIVE_PROFILE)
     if not v:
         raise RuntimeError(f"Missing .env: {key}")
     return v
@@ -493,7 +508,8 @@ def run_mode_sync_all(token: str, admin_userid: str) -> None:
 # 5) 主入口
 # =========================
 def main():
-    load_dotenv()
+    global ACTIVE_PROFILE
+    ACTIVE_PROFILE = load_dotenv_for_profile("WECOM")
     corpid = must_env("WECOM_CORP_ID")
     secret = must_env("WECOM_APP_SECRET")
     admin_userid = must_env("ADMIN_USERID")
@@ -516,3 +532,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

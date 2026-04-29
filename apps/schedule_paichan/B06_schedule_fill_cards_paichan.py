@@ -1,3 +1,9 @@
+"""
+程序简介：把标准化任务填入排产框架，生成 Excel、布局 JSON 或 HTML 排产结果。
+主要逻辑：读取所需配置或输入数据，执行本文件负责的处理步骤，并把结果写入本地文件或输出到命令行。
+配置说明：涉及企微或飞书凭证时，优先读取 PEIFANG_ENV_PROFILE、WECOM_ENV_PROFILE、FEISHU_ENV_PROFILE 选择公司配置档案；未设置时兼容原来的 .env 变量。
+"""
+
 # B06_填充卡片.py
 # 作用：读取 layout.json + 框架xlsx -> 用 Excel COM 插入“圆角矩形Shape（可编辑）”
 # 特性：
@@ -21,6 +27,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from peifang_core.common import ROOT_DIR
+from peifang_core.output_manager import archive_outputs, cleanup_output_history, publish_latest
 from peifang_core.schedule_web import render_schedule_html
 
 # =========================
@@ -157,12 +164,27 @@ SHAPE_TAG_PREFIX = "TASKCARD::"
 
 
 def pick_latest(prefix: str, ext: str) -> Optional[str]:
-    """在 OUTPUT_DIR 中选择最新的 prefix+*+ext 文件（按修改时间）"""
-    files = [f for f in os.listdir(OUTPUT_DIR) if f.startswith(prefix) and f.endswith(ext)]
-    if not files:
+    """优先读取 output/latest 固定文件；否则从 output/archive 或 output 根目录找最新时间戳文件。"""
+    latest_by_prefix = {
+        "排产_layout_": os.path.join(OUTPUT_DIR, "latest", "排产_layout.json"),
+        "排产_框架_": os.path.join(OUTPUT_DIR, "latest", "排产_框架.xlsx"),
+        "schedule_web_": os.path.join(OUTPUT_DIR, "latest", "schedule_web.html"),
+    }
+    latest_path = latest_by_prefix.get(prefix)
+    if latest_path and os.path.exists(latest_path):
+        return latest_path
+
+    candidates: List[str] = []
+    for search_dir in [OUTPUT_DIR, os.path.join(OUTPUT_DIR, "archive")]:
+        if not os.path.isdir(search_dir):
+            continue
+        for fn in os.listdir(search_dir):
+            if fn.startswith(prefix) and fn.endswith(ext) and not fn.startswith("~$"):
+                candidates.append(os.path.join(search_dir, fn))
+    if not candidates:
         return None
-    files.sort(key=lambda fn: os.path.getmtime(os.path.join(OUTPUT_DIR, fn)), reverse=True)
-    return os.path.join(OUTPUT_DIR, files[0])
+    candidates.sort(key=lambda path: os.path.getmtime(path), reverse=True)
+    return candidates[0]
 
 
 def px_to_pt(px: float) -> float:
@@ -377,10 +399,13 @@ def main():
     with open(layout_path, "r", encoding="utf-8") as f:
         layout = json.load(f)
     layout["today"] = datetime.now().date().isoformat()
-    html_path = os.path.join(
-        OUTPUT_DIR,
-        os.path.basename(layout_path).replace("排产_layout_", "schedule_web_").replace(".json", ".html"),
-    )
+    if os.path.dirname(os.path.abspath(layout_path)) == os.path.abspath(os.path.join(OUTPUT_DIR, "latest")):
+        html_path = os.path.join(OUTPUT_DIR, "latest", "schedule_web.html")
+    else:
+        html_path = os.path.join(
+            OUTPUT_DIR,
+            os.path.basename(layout_path).replace("排产_layout_", "schedule_web_").replace(".json", ".html"),
+        )
     render_schedule_html(layout, html_path)
 
     items = layout.get("items", [])
@@ -594,10 +619,31 @@ def main():
     wb.Save()
     wb.Close(SaveChanges=True)
     excel.Quit()
+    latest = publish_latest(
+        {
+            "排产_框架.xlsx": frame_path,
+            "排产_layout.json": layout_path,
+            "schedule_web.html": html_path,
+        },
+        OUTPUT_DIR,
+    )
+    archived = archive_outputs(
+        {
+            "排产_框架.xlsx": frame_path,
+            "排产_layout.json": layout_path,
+            "schedule_web.html": html_path,
+        },
+        OUTPUT_DIR,
+    )
+    removed = cleanup_output_history(OUTPUT_DIR)
 
     print(f"OK: 已填充卡片并保存：{frame_path}")
     print(f"layout: {layout_path}")
     print(f"web: {html_path}")
+    print(f"latest: {latest.get('schedule_web.html', '')}")
+    print(f"archive: {archived.get('schedule_web.html', '')}")
+    if removed:
+        print(f"cleanup_removed={len(removed)}")
 
 
 if __name__ == "__main__":
@@ -606,3 +652,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"ERROR: {e}")
         sys.exit(1)
+

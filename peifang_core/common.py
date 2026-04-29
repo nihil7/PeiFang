@@ -1,8 +1,15 @@
+"""
+程序简介：提供项目根路径、JSON/文本读写、记录排序合并、时间处理，以及多公司环境变量配置档案读取。
+主要逻辑：读取所需配置或输入数据，执行本文件负责的处理步骤，并把结果写入本地文件或输出到命令行。
+配置说明：涉及企微或飞书凭证时，优先读取 PEIFANG_ENV_PROFILE、WECOM_ENV_PROFILE、FEISHU_ENV_PROFILE 选择公司配置档案；未设置时兼容原来的 .env 变量。
+"""
+
 from __future__ import annotations
 
 import hashlib
 import json
 import os
+import re
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -10,6 +17,80 @@ from typing import Any, Iterable
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
+
+
+def normalize_env_profile(profile: str | None) -> str:
+    """把公司配置档案名整理成可用于环境变量名的格式。"""
+    return re.sub(r"[^A-Za-z0-9]+", "_", (profile or "").strip()).strip("_").upper()
+
+
+def get_env_profile(namespace: str | None = None) -> str:
+    """读取当前启用的配置档案，平台专用配置优先于项目通用配置。"""
+    namespace_key = f"{normalize_env_profile(namespace)}_ENV_PROFILE" if namespace else ""
+    return (os.getenv(namespace_key) or os.getenv("PEIFANG_ENV_PROFILE") or "").strip()
+
+
+def load_dotenv_for_profile(namespace: str | None = None) -> str:
+    """
+    读取 .env，并按配置档案追加读取公司专用 .env 文件。
+
+    示例：
+    - PEIFANG_ENV_PROFILE=haier 会读取 .env 和 .env.haier。
+    - WECOM_ENV_PROFILE=haier 会额外读取 .env.wecom.haier。
+    - 配置档案文件里可以继续使用 WECOM_CORP_ID 这类普通变量名。
+    """
+    from dotenv import load_dotenv
+
+    load_dotenv(ROOT_DIR / ".env", override=False)
+    profile = get_env_profile(namespace)
+    if not profile:
+        return ""
+
+    profile_slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", profile.strip()).strip("_.-")
+    load_dotenv(ROOT_DIR / f".env.{profile_slug}", override=True)
+    if namespace:
+        namespace_slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", namespace.strip().lower()).strip("_.-")
+        load_dotenv(ROOT_DIR / f".env.{namespace_slug}.{profile_slug}", override=True)
+    return profile
+
+
+def profiled_env_candidates(key: str, namespace: str | None = None, profile: str | None = None) -> list[str]:
+    """生成一个配置项在当前公司档案下可能使用的环境变量名。"""
+    normalized_profile = normalize_env_profile(profile)
+    normalized_namespace = normalize_env_profile(namespace)
+    normalized_key = normalize_env_profile(key)
+    candidates: list[str] = []
+
+    if normalized_profile:
+        if normalized_namespace and normalized_key.startswith(f"{normalized_namespace}_"):
+            rest = normalized_key[len(normalized_namespace) + 1 :]
+            candidates.append(f"{normalized_namespace}_{normalized_profile}_{rest}")
+        elif normalized_namespace:
+            candidates.append(f"{normalized_namespace}_{normalized_profile}_{normalized_key}")
+
+        if "_" in normalized_key:
+            first, rest = normalized_key.split("_", 1)
+            candidates.append(f"{first}_{normalized_profile}_{rest}")
+
+        candidates.extend(
+            [
+                f"{normalized_key}_{normalized_profile}",
+                f"{normalized_profile}_{normalized_key}",
+            ]
+        )
+
+    candidates.append(normalized_key)
+    return list(dict.fromkeys(candidates))
+
+
+def get_profiled_env(key: str, namespace: str | None = None, profile: str | None = None, default: str = "") -> str:
+    """读取配置项：优先读取公司档案变量，最后回退到旧的单公司变量名。"""
+    active_profile = profile if profile is not None else get_env_profile(namespace)
+    for name in profiled_env_candidates(key, namespace=namespace, profile=active_profile):
+        value = os.getenv(name)
+        if value is not None and str(value).strip() != "":
+            return str(value).strip()
+    return default
 
 
 def ensure_dir(path: Path | str) -> Path:
@@ -240,3 +321,4 @@ def date_label(iso_date: str) -> str:
     dt = date.fromisoformat(iso_date)
     weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
     return f"{dt.month}/{dt.day} {weekdays[dt.weekday()]}"
+

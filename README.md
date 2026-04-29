@@ -1,146 +1,122 @@
-# PeiFang PaiChan
+# 配方排产项目
 
-This repository is now organized for direct GitHub cloning and local use.
-The structure follows three main groups:
+这个仓库用于把企业微信智能表格、飞书多维表格中的生产任务同步到本地，再整理成排产任务、Excel 框架和可查看的排产结果。
 
-- WeCom smart-sheet sync and post-processing
-- Feishu bitable sync and post-processing
-- Other functional utility scripts
+项目说明统一放在各级 `README.md` 中；原来的 `A00_目录说明.txt` 已不再需要，避免同一份说明维护两遍。
 
-No root-level compatibility wrappers are required for normal use. The old thin redirect files were moved into `legacy/compat_wrappers_archive/` for reference only.
+## 快速入口
 
-## Project Layout
+| 任务 | 建议入口 |
+|---|---|
+| 同步企业微信智能表格 | `apps/wecom_smartsheet_qiyeweixin/B02_wecom_smartsheet_sync_qiyeweixin.py` |
+| 同步飞书多维表格 | `apps/feishu_bitable_feishu/F01_feishu_bitable_sync_feishu.py` |
+| 生成标准化排产任务 | `apps/schedule_paichan/B05A_schedule_prepare_paichan.py` |
+| 生成排产网页看板和布局 | `apps/schedule_paichan/B05B_schedule_build_frame_paichan.py` |
+| 填充 Excel 排产卡片，可选 | `apps/schedule_paichan/B06_schedule_fill_cards_paichan.py` |
+| 拉取飞书群消息 | `apps/feishu_local_bot_feishu/run_history_sync.py` |
 
-### `apps/wecom_smartsheet_qiyeweixin/`
+## 推荐运行顺序
 
-WeCom smart-sheet related entry scripts:
-
-- `B00_wecom_verify_server_qiyeweixin.py`
-- `B01_wecom_smartsheet_registry_qiyeweixin.py`
-- `B02_wecom_smartsheet_sync_qiyeweixin.py`
-- `B03_wecom_smartsheet_templates_qiyeweixin.py`
-- `B04_wecom_smartsheet_read_qiyeweixin.py`
-
-### `apps/schedule_paichan/`
-
-Scheduling and post-processing scripts:
-
-- `B05A_schedule_prepare_paichan.py`
-- `B05B_schedule_build_frame_paichan.py`
-- `B06_schedule_fill_cards_paichan.py`
-
-The schedule pipeline can now generate:
-
-- Excel output
-- layout JSON
-- HTML schedule pages for later website integration
-
-### `apps/feishu_bitable_feishu/`
-
-Feishu bitable related entry scripts:
-
-- `F01_feishu_bitable_sync_feishu.py`
-- `F02_feishu_dashboard_id_feishu.py`
-- `F03_feishu_api_info_feishu.py`
-- `F04_feishu_long_conn_feishu.py`
-
-### `apps/feishu_local_bot_feishu/`
-
-Standalone Feishu local bot subproject retained as its own app area.
-
-### `tools/manufacturing_calc_gongju/`
-
-Other manufacturing and calculation scripts were preserved and grouped here:
-
-- `T010_extract_source_bom_goujianbili.py`
-- `T020_matrix_juzhen.py`
-- `T021_insert_structure_frame_zijianbiaozhun.py`
-- `T030_purchase_cost_caigou.py`
-- `T040_sales_profit_xiaoshou.py`
-
-### `tools/misc_gongju/`
-
-Other utility scripts and notes:
-
-- `M10_message_sender_main.py`
-- `M20_haier_ppt_gongju.py`
-- `M30_color_standard_juxian.py`
-- `M40_video_cut_jianji.py`
-- `M50_text_notes_tici.txt`
-
-### `peifang_core/`
-
-Shared core logic for sync and rendering:
-
-- `common.py`
-- `wecom.py`
-- `feishu.py`
-- `schedule_web.py`
-
-### `data/`
-
-Local sync cache directory.
-
-### `production_data_shengchan/`
-
-Local production data directory. Real business data is not committed.
-
-### `legacy/`
-
-Archived experiment scripts and compatibility wrappers kept only for reference.
-
-## Sync Strategy
-
-### WeCom smart-sheet sync
-
-- First run pulls full data and stores it locally
-- Later runs fetch the latest 50 records after time sorting
-- New records are merged into local cache
-- Periodic full refresh is supported to verify local accuracy
-
-Cache path:
-
-- `data/wecom/smartsheet/<docid>/<sheetid>/`
-
-### Feishu bitable sync
-
-- First run pulls full data and stores it locally
-- Later runs fetch the latest 50 records after time sorting
-- New records are merged into local cache
-- Periodic full refresh is supported to verify local accuracy
-
-Cache path:
-
-- `data/feishu/bitable/<app_token>/<table_id>/`
-
-## Quick Start
-
-1. Copy `.env.example` to `.env` and fill in credentials.
-2. Review sample config files and examples.
-3. Run the needed entry script from `apps/`.
-
-Example commands:
+1. 复制 `.env.example` 为 `.env`，填写企业微信或飞书凭证。
+2. 如需多公司配置，设置 `WECOM_ENV_PROFILE=COMPANY_A` 或 `COMPANY_B`，飞书可设置 `FEISHU_ENV_PROFILE`。
+3. 先同步数据，再运行排产链路。
 
 ```powershell
-python apps/wecom_smartsheet_qiyeweixin/B02_wecom_smartsheet_sync_qiyeweixin.py --help
-python apps/feishu_bitable_feishu/F01_feishu_bitable_sync_feishu.py --help
+python apps/wecom_smartsheet_qiyeweixin/B02_wecom_smartsheet_sync_qiyeweixin.py
+python apps/feishu_bitable_feishu/F01_feishu_bitable_sync_feishu.py --mode auto
 python apps/schedule_paichan/B05A_schedule_prepare_paichan.py
 python apps/schedule_paichan/B05B_schedule_build_frame_paichan.py
-python apps/schedule_paichan/B06_schedule_fill_cards_paichan.py
 ```
 
-## Git Safety
+Linux 服务器环境下通常跑到 `B05B` 即可，使用生成的 `schedule_web_*.html` 作为主排产看板。`B06` 依赖 Windows Excel COM，适合本机需要 Excel 文件时再运行。
 
-These items are intentionally ignored:
+日常打开最新结果时，优先看固定文件：
 
-- `.env`
-- `smartsheet_registry.json`
-- local sync data under `data/`
-- runtime output under `output/`
-- real business data under `production_data_shengchan/`
+```text
+output/latest/schedule_web.html
+```
 
-Safe examples are kept in:
+企业微信完整同步后，人工核对原始表格数据可打开：
 
-- `examples/`
-- `.env.example`
-- `smartsheet_registry.example.json`
+```text
+output/latest/wecom_smartsheet_full.xlsx
+```
+
+带时间戳的历史输出会自动归档到 `output/archive/`，避免 `output/` 根目录越跑越乱。
+
+## 目录地图
+
+| 路径 | 用途 | 进一步阅读 |
+|---|---|---|
+| `apps/` | 可直接运行的业务入口，按平台和流程分组 | [apps/README.md](apps/README.md) |
+| `peifang_core/` | 企业微信、飞书、排产渲染等可复用核心逻辑 | [peifang_core/README.md](peifang_core/README.md) |
+| `tools/` | 不属于主同步链路的独立制造计算和杂项工具 | [tools/README.md](tools/README.md) |
+| `data/` | 同步后的本地缓存和状态文件 | [data/README.md](data/README.md) |
+| `output/` | 排产流程生成的 JSON、CSV、Excel、HTML 等输出 | [output/README.md](output/README.md) |
+| `production_data_shengchan/` | 真实生产业务数据的本地放置区 | [production_data_shengchan/README.md](production_data_shengchan/README.md) |
+| `examples/` | 可提交的样例输入和样例输出 | [examples/README.md](examples/README.md) |
+| `legacy/` | 旧脚本、实验脚本和兼容包装归档 | [legacy/README.md](legacy/README.md) |
+
+## 数据流
+
+```text
+企业微信智能表格 / 飞书多维表格
+        -> 同步脚本
+        -> data/ 本地缓存
+        -> B05A 标准化任务
+        -> output/ 标准任务、布局和结果文件
+        -> B05B 自适应 HTML 看板和布局
+        -> B06 Excel 排产结果（Windows 可选）
+```
+
+## 同步策略
+
+| 平台 | 入口 | 缓存路径 | 策略 |
+|---|---|---|---|
+| 企业微信智能表格 | `apps/wecom_smartsheet_qiyeweixin/B02_wecom_smartsheet_sync_qiyeweixin.py` | `data/wecom/smartsheet/<docid>/<sheetid>/` | 首次全量；后续可取最近记录合并；定期全量校验 |
+| 飞书多维表格 | `apps/feishu_bitable_feishu/F01_feishu_bitable_sync_feishu.py` | `data/feishu/bitable/<app_token>/<table_id>/` | 首次全量；后续可取最近记录合并；定期全量校验 |
+
+## 多公司环境配置
+
+项目支持多个企业微信或多个飞书公司的配置。未设置配置档案时，继续读取原来的单公司变量；设置配置档案后，会优先读取对应公司的变量或专用环境文件。
+
+常用选择变量：
+
+| 变量 | 用途 |
+|---|---|
+| `PEIFANG_ENV_PROFILE` | 企业微信和飞书共用同一个配置档案 |
+| `WECOM_ENV_PROFILE` | 只选择企业微信配置档案 |
+| `FEISHU_ENV_PROFILE` | 只选择飞书配置档案 |
+
+同一个 `.env` 中可以写带档案名的变量：
+
+```dotenv
+WECOM_ENV_PROFILE=COMPANY_A
+WECOM_COMPANY_A_CORP_ID=wwxxxxxxxxxxxxxxxx
+WECOM_COMPANY_A_ADMIN_USERID=your_admin_userid
+WECOM_COMPANY_A_APP_SECRET=replace-me
+WECOM_COMPANY_A_CALLBACK_TOKEN=replace-me
+WECOM_COMPANY_A_CALLBACK_AESKEY=replace-me
+WEDOC_COMPANY_A_DOCID=sample_docid_a
+WEDOC_COMPANY_A_SHEET_ID=sample_sheet_id_a
+SMARTSHEET_COMPANY_A_ID=sample_docid_a
+SMARTSHEET_COMPANY_A_SHEET_ID=sample_sheet_id_a
+
+WECOM_COMPANY_B_CORP_ID=wwyyyyyyyyyyyyyyyy
+WECOM_COMPANY_B_ADMIN_USERID=your_admin_userid
+WECOM_COMPANY_B_APP_SECRET=replace-me
+WEDOC_COMPANY_B_DOCID=sample_docid_b
+WEDOC_COMPANY_B_SHEET_ID=sample_sheet_id_b
+
+FEISHU_ENV_PROFILE=COMPANY_B
+FEISHU_COMPANY_B_APP_ID=cli_xxxxxxxxxxxxxxxx
+FEISHU_COMPANY_B_APP_SECRET=replace-me
+FEISHU_COMPANY_B_APP_TOKEN=bascnxxxxxxxxxxxxxxxx
+FEISHU_COMPANY_B_TABLE_ID=tblxxxxxxxxxxxxxxxx
+```
+
+也可以为不同公司单独放本地文件，例如 `.env.company_a`、`.env.wecom.company_a`、`.env.feishu.company_b`。这些文件里可以继续使用普通变量名，例如 `WECOM_CORP_ID`、`FEISHU_APP_ID`、`APP_TOKEN`。
+
+## 提交安全
+
+真实凭证、真实业务数据、运行缓存和输出文件不应提交。可提交的安全示例保留在 `.env.example`、`examples/` 和 `smartsheet_registry.example.json`。

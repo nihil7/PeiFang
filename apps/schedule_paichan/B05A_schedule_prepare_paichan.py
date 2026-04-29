@@ -1,6 +1,12 @@
+"""
+程序简介：读取最新同步记录，解析机台、日期、文本和颜色，输出标准化排产任务 JSON/CSV。
+主要逻辑：读取所需配置或输入数据，执行本文件负责的处理步骤，并把结果写入本地文件或输出到命令行。
+配置说明：涉及企微或飞书凭证时，优先读取 PEIFANG_ENV_PROFILE、WECOM_ENV_PROFILE、FEISHU_ENV_PROFILE 选择公司配置档案；未设置时兼容原来的 .env 变量。
+"""
+
 # B05A_prepare_data.py
 # 功能：
-# 1) 读取 output 下最新 records.raw.json（可选同时读取 fields.json）
+# 1) 读取 output 下最新 records.raw.json；若没有，则读取 data/wecom/smartsheet 下最新同步缓存
 # 2) 开始/结束日期：按北京时间解析毫秒（修复“差一天”）
 # 3) 甘特图文本：拆成3行（只处理第1、第3个空格；第2个空格不动）
 # 4) 计算长度：len1/len2/len3/max_len（按“视觉长度”加权：更贴近 Excel 字体实际占宽）
@@ -21,6 +27,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from peifang_core.common import ROOT_DIR
+from peifang_core.output_manager import archive_outputs, cleanup_output_history, publish_latest
 
 try:
     from zoneinfo import ZoneInfo
@@ -86,6 +93,25 @@ def pick_latest(output_dir: str, suffix: str) -> Optional[str]:
         return None
     files.sort(key=lambda fn: os.path.getmtime(os.path.join(output_dir, fn)), reverse=True)
     return os.path.join(output_dir, files[0])
+
+
+def pick_latest_wecom_cache() -> Tuple[Optional[str], Optional[str]]:
+    data_root = os.path.join(BASE_DIR, "data", "wecom", "smartsheet")
+    if not os.path.isdir(data_root):
+        return None, None
+
+    candidates: List[str] = []
+    for root, _, files in os.walk(data_root):
+        if "records_merged_latest.json" in files:
+            candidates.append(os.path.join(root, "records_merged_latest.json"))
+
+    if not candidates:
+        return None, None
+
+    candidates.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+    records_path = candidates[0]
+    fields_path = os.path.join(os.path.dirname(records_path), "fields_latest.json")
+    return records_path, fields_path if os.path.exists(fields_path) else None
 
 
 def read_json(path: str) -> dict:
@@ -303,6 +329,12 @@ def main():
         fp = pick_latest(OUTPUT_DIR, ".fields.json")
         if fp:
             fields_path = fp
+        if not lp:
+            cache_records, cache_fields = pick_latest_wecom_cache()
+            if cache_records:
+                records_path = cache_records
+            if cache_fields:
+                fields_path = cache_fields
 
     if not os.path.exists(records_path):
         raise FileNotFoundError(f"records 文件不存在：{records_path}")
@@ -415,10 +447,29 @@ def main():
     import pandas as pd
     df = pd.DataFrame(tasks)
     df.to_csv(out_csv, index=False, encoding="utf-8-sig")
+    latest = publish_latest(
+        {
+            "tasks_prepared.json": out_json,
+            "tasks_prepared.csv": out_csv,
+        },
+        OUTPUT_DIR,
+    )
+    archived = archive_outputs(
+        {
+            "tasks_prepared.json": out_json,
+            "tasks_prepared.csv": out_csv,
+        },
+        OUTPUT_DIR,
+    )
+    removed = cleanup_output_history(OUTPUT_DIR)
 
     # 打印预览（少量，避免过长）
     print(f"OK: prepared_json={out_json}")
     print(f"OK: prepared_csv ={out_csv}")
+    print(f"latest: {latest.get('tasks_prepared.json', '')}")
+    print(f"archive: {archived.get('tasks_prepared.json', '')}")
+    if removed:
+        print(f"cleanup_removed={len(removed)}")
     print(f"tasks={len(tasks)} | date_range={payload['min_date']} ~ {payload['max_date']}")
     head = sorted(tasks, key=lambda x: (x["machine"], x["start_ms"], x["end_ms"]))[:PRINT_FIRST_N]
     for i, t in enumerate(head, 1):
@@ -433,3 +484,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"ERROR: {e}")
         sys.exit(1)
+

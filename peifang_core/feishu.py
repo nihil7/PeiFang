@@ -1,17 +1,23 @@
+"""
+程序简介：封装飞书多维表格同步逻辑，按当前公司配置解析表格标识、拉取字段和记录，并维护本地缓存。
+主要逻辑：读取所需配置或输入数据，执行本文件负责的处理步骤，并把结果写入本地文件或输出到命令行。
+配置说明：涉及企微或飞书凭证时，优先读取 PEIFANG_ENV_PROFILE、WECOM_ENV_PROFILE、FEISHU_ENV_PROFILE 选择公司配置档案；未设置时兼容原来的 .env 变量。
+"""
+
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import requests
-from dotenv import load_dotenv
 
 from .common import (
     DATA_DIR,
     build_verify_report,
     ensure_dir,
+    get_profiled_env,
+    load_dotenv_for_profile,
     merge_records,
     now_iso,
     now_tag,
@@ -116,15 +122,19 @@ def parse_wiki_url(wiki_url: str) -> tuple[str | None, str | None]:
     return node_token, table_id
 
 
-def resolve_selection() -> dict[str, str]:
-    load_dotenv()
-    api_base = (os.getenv("FEISHU_API_BASE") or FEISHU_API_BASE).strip() or FEISHU_API_BASE
-    app_id = (os.getenv("APP_ID") or os.getenv("FEISHU_APP_ID") or "").strip()
-    app_secret = (os.getenv("APP_SECRET") or os.getenv("FEISHU_APP_SECRET") or "").strip()
-    app_token = (os.getenv("APP_TOKEN") or "").strip()
-    table_id = (os.getenv("TABLE_ID") or "").strip()
-    wiki_url = (os.getenv("WIKI_URL") or "").strip()
-    wiki_node_token = (os.getenv("WIKI_NODE_TOKEN") or "").strip()
+def resolve_selection(profile: str | None = None) -> dict[str, str]:
+    profile = profile if profile is not None else load_dotenv_for_profile("FEISHU")
+    api_base = get_profiled_env("FEISHU_API_BASE", namespace="FEISHU", profile=profile, default=FEISHU_API_BASE)
+    app_id = get_profiled_env("APP_ID", namespace="FEISHU", profile=profile) or get_profiled_env(
+        "FEISHU_APP_ID", namespace="FEISHU", profile=profile
+    )
+    app_secret = get_profiled_env("APP_SECRET", namespace="FEISHU", profile=profile) or get_profiled_env(
+        "FEISHU_APP_SECRET", namespace="FEISHU", profile=profile
+    )
+    app_token = get_profiled_env("APP_TOKEN", namespace="FEISHU", profile=profile)
+    table_id = get_profiled_env("TABLE_ID", namespace="FEISHU", profile=profile)
+    wiki_url = get_profiled_env("WIKI_URL", namespace="FEISHU", profile=profile)
+    wiki_node_token = get_profiled_env("WIKI_NODE_TOKEN", namespace="FEISHU", profile=profile)
 
     if not app_id or not app_secret:
         raise RuntimeError("缺少 APP_ID / APP_SECRET")
@@ -241,3 +251,4 @@ def sync_bitable(mode: str = "auto", recent_limit: int = 50, verify_interval_hou
     summary["merged_path"] = str(paths["merged_latest"])
     summary["state_path"] = str(paths["state"])
     return summary
+

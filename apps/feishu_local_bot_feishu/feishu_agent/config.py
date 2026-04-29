@@ -1,8 +1,24 @@
+"""
+程序简介：读取飞书机器人运行配置，支持默认变量和多公司配置档案变量。
+主要逻辑：读取所需配置或输入数据，执行本文件负责的处理步骤，并把结果写入本地文件或输出到命令行。
+配置说明：涉及企微或飞书凭证时，优先读取 PEIFANG_ENV_PROFILE、WECOM_ENV_PROFILE、FEISHU_ENV_PROFILE 选择公司配置档案；未设置时兼容原来的 .env 变量。
+"""
+
 import os
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List, Optional
 
 from dotenv import load_dotenv
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+APP_ROOT = Path(__file__).resolve().parents[1]
+
+from peifang_core.common import get_profiled_env, load_dotenv_for_profile
 
 
 def _split_csv(value: str) -> List[str]:
@@ -52,45 +68,53 @@ class Settings:
 
 
 def load_settings() -> Settings:
-    # 读取 .env（优先当前目录）
-    load_dotenv(override=False)
+    # 先读取本地机器人自己的 .env，保证 FEISHU_ENV_PROFILE 也能放在子项目内。
+    load_dotenv(APP_ROOT / ".env", override=False)
+    profile = load_dotenv_for_profile("FEISHU")
+    load_dotenv(APP_ROOT / ".env", override=False)
 
-    app_id = os.getenv("FEISHU_APP_ID", "").strip()
-    app_secret = os.getenv("FEISHU_APP_SECRET", "").strip()
+    app_id = get_profiled_env("FEISHU_APP_ID", namespace="FEISHU", profile=profile) or get_profiled_env(
+        "APP_ID", namespace="FEISHU", profile=profile
+    )
+    app_secret = get_profiled_env("FEISHU_APP_SECRET", namespace="FEISHU", profile=profile) or get_profiled_env(
+        "APP_SECRET", namespace="FEISHU", profile=profile
+    )
     if not app_id or not app_secret:
         raise RuntimeError("缺少 FEISHU_APP_ID / FEISHU_APP_SECRET，请先配置 .env")
 
-    data_dir = os.getenv("FEISHU_DATA_DIR", "./data").strip() or "./data"
+    data_dir = get_profiled_env("FEISHU_DATA_DIR", namespace="FEISHU", profile=profile, default="./data") or "./data"
 
-    page_size_raw = os.getenv("FEISHU_PAGE_SIZE", "50").strip()
+    page_size_raw = get_profiled_env("FEISHU_PAGE_SIZE", namespace="FEISHU", profile=profile, default="50")
     try:
         page_size = int(page_size_raw)
     except ValueError:
         page_size = 50
     page_size = max(1, min(page_size, 50))
 
-    target_chat_ids_raw = os.getenv("FEISHU_TARGET_CHAT_IDS", "").strip()
+    target_chat_ids_raw = get_profiled_env("FEISHU_TARGET_CHAT_IDS", namespace="FEISHU", profile=profile)
     target_chat_ids = _split_csv(target_chat_ids_raw) if target_chat_ids_raw else None
 
-    history_start_time = os.getenv("FEISHU_HISTORY_START_TIME", "").strip()
+    history_start_time = get_profiled_env("FEISHU_HISTORY_START_TIME", namespace="FEISHU", profile=profile)
     history_start_time_i = int(history_start_time) if history_start_time else None
 
-    history_start_days = os.getenv("FEISHU_HISTORY_START_DAYS", "").strip()
+    history_start_days = get_profiled_env("FEISHU_HISTORY_START_DAYS", namespace="FEISHU", profile=profile)
     history_start_days_i = int(history_start_days) if history_start_days else None
 
-    history_end_time = os.getenv("FEISHU_HISTORY_END_TIME", "").strip()
+    history_end_time = get_profiled_env("FEISHU_HISTORY_END_TIME", namespace="FEISHU", profile=profile)
     history_end_time_i = int(history_end_time) if history_end_time else None
 
-    log_level = os.getenv("FEISHU_LOG_LEVEL", "INFO").strip().upper() or "INFO"
+    log_level = get_profiled_env("FEISHU_LOG_LEVEL", namespace="FEISHU", profile=profile, default="INFO").upper() or "INFO"
 
-    server_host = os.getenv("FEISHU_SERVER_HOST", "127.0.0.1").strip() or "127.0.0.1"
-    server_port_raw = os.getenv("FEISHU_SERVER_PORT", "8000").strip()
+    server_host = get_profiled_env(
+        "FEISHU_SERVER_HOST", namespace="FEISHU", profile=profile, default="127.0.0.1"
+    ) or "127.0.0.1"
+    server_port_raw = get_profiled_env("FEISHU_SERVER_PORT", namespace="FEISHU", profile=profile, default="8000")
     try:
         server_port = int(server_port_raw)
     except ValueError:
         server_port = 8000
 
-    poll_raw = os.getenv("FEISHU_POLL_INTERVAL_SECONDS", "0").strip()
+    poll_raw = get_profiled_env("FEISHU_POLL_INTERVAL_SECONDS", namespace="FEISHU", profile=profile, default="0")
     try:
         poll_interval_seconds = int(poll_raw) if poll_raw else 0
     except ValueError:
@@ -98,9 +122,15 @@ def load_settings() -> Settings:
     poll_interval_seconds = max(0, poll_interval_seconds)
 
     # ✅ 新增：图片下载开关
-    download_images = _to_bool(os.getenv("FEISHU_DOWNLOAD_IMAGES", "0"), default=False)
-    images_skip_existing = _to_bool(os.getenv("FEISHU_IMAGES_SKIP_EXISTING", "1"), default=True)
-    images_dir = os.getenv("FEISHU_IMAGES_DIR", "").strip()
+    download_images = _to_bool(
+        get_profiled_env("FEISHU_DOWNLOAD_IMAGES", namespace="FEISHU", profile=profile, default="0"),
+        default=False,
+    )
+    images_skip_existing = _to_bool(
+        get_profiled_env("FEISHU_IMAGES_SKIP_EXISTING", namespace="FEISHU", profile=profile, default="1"),
+        default=True,
+    )
+    images_dir = get_profiled_env("FEISHU_IMAGES_DIR", namespace="FEISHU", profile=profile)
 
     return Settings(
         app_id=app_id,
