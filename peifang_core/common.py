@@ -83,10 +83,19 @@ def profiled_env_candidates(key: str, namespace: str | None = None, profile: str
     return list(dict.fromkeys(candidates))
 
 
-def get_profiled_env(key: str, namespace: str | None = None, profile: str | None = None, default: str = "") -> str:
+def get_profiled_env(
+    key: str,
+    namespace: str | None = None,
+    profile: str | None = None,
+    default: str = "",
+    fallback_legacy: bool = True,
+) -> str:
     """读取配置项：优先读取公司档案变量，最后回退到旧的单公司变量名。"""
     active_profile = profile if profile is not None else get_env_profile(namespace)
-    for name in profiled_env_candidates(key, namespace=namespace, profile=active_profile):
+    candidates = profiled_env_candidates(key, namespace=namespace, profile=active_profile)
+    if active_profile and not fallback_legacy:
+        candidates = candidates[:-1]
+    for name in candidates:
         value = os.getenv(name)
         if value is not None and str(value).strip() != "":
             return str(value).strip()

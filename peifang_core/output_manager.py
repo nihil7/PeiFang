@@ -19,6 +19,14 @@ HISTORY_PATTERNS = [
     "schedule_web_*.html",
     "wecom_smartsheet_full_*.csv",
     "wecom_smartsheet_full_*.xlsx",
+    "document_inventory_*.csv",
+    "document_inventory_*.xlsx",
+    "wecom_two_company_sync_summary_*.json",
+    "wecom_smartsheet_link_inventory_*.csv",
+    "wecom_smartsheet_link_inventory_*.xlsx",
+    "wecom_smartsheet_profile_verification_*.csv",
+    "wecom_smartsheet_profile_verification_*.xlsx",
+    "wecom_smartsheet_manager_summary_*.json",
 ]
 
 
@@ -45,8 +53,12 @@ def publish_latest(files: Mapping[str, str | Path], output_dir: str | Path) -> d
         if src.resolve() == dst.resolve():
             published[latest_name] = str(dst)
             continue
-        shutil.copy2(src, dst)
-        published[latest_name] = str(dst)
+        try:
+            shutil.copy2(src, dst)
+            published[latest_name] = str(dst)
+        except OSError:
+            if dst.exists():
+                published[latest_name] = str(dst)
     return published
 
 

@@ -2,6 +2,18 @@
 
 `data/` 用于保存同步脚本生成的本地缓存、状态文件和中间数据。这里通常是运行产物，不应提交真实业务数据。
 
+## 日常可见性
+
+这里是程序缓存和状态区，日常不需要逐层打开。只有同步异常时才检查：
+
+```text
+data/wecom/manual_smartsheet_links.xlsx
+data/wecom/smartsheet/<docid>/<sheet_id>/fields_latest.json
+data/wecom/smartsheet/<docid>/<sheet_id>/records_merged_latest.json
+```
+
+不要手工改 `data/wecom/smartsheet/**` 下的缓存文件；需要新增表格时，优先维护 `manual_smartsheet_links.xlsx`，再运行企业微信标准同步入口。
+
 ## 常见内容
 
 | 类型 | 来源 | 用途 |

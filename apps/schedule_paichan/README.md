@@ -21,6 +21,15 @@ python apps/schedule_paichan/B05B_schedule_build_frame_paichan.py
 output/latest/schedule_web.html
 ```
 
+## 排产核心输出
+
+| 文件 | 用途 |
+|---|---|
+| `output/latest/tasks_prepared.json` | B05A 生成的标准化任务，是排产问题的第一检查点 |
+| `output/latest/tasks_prepared.csv` | 方便人工查看的任务表 |
+| `output/latest/排产_layout.json` | B05B 生成的布局数据 |
+| `output/latest/schedule_web.html` | 日常查看的网页排产看板 |
+
 ## 注意
 
 - `B06` 使用 Excel COM 和 `pywin32` 插入可编辑形状，通常需要 Windows + 本机 Office。

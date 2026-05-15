@@ -18,6 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 os.chdir(PROJECT_ROOT)
 
 from peifang_core.common import get_profiled_env, load_dotenv_for_profile
+from peifang_core.document_inventory import export_document_inventory
 
 BASE = "https://qyapi.weixin.qq.com/cgi-bin"
 ACTIVE_PROFILE = ""
@@ -25,11 +26,11 @@ ACTIVE_PROFILE = ""
 # ==========================================================
 # 0) 配置区（你只需要改这里）
 # ==========================================================
-MODE = 1  # 1 = 新建并存储；0 = 刷新 registry 里所有表的ID并打印变更
+MODE = 0  # 1 = 新建并存储；0 = 刷新 registry 里所有表的ID并打印变更
 
 # MODE=1 时使用
-DOC_NAME = "色粉使用记录表"
-SHEET_TITLES = ["明细", "最新产品"]
+DOC_NAME = "案例表4"
+SHEET_TITLES = ["A", "B"]
 
 # MODE=0 时可选：不填=自动刷新 registry 里全部 docid；填了=只刷新该 docid
 TARGET_DOCID = ""
@@ -46,6 +47,7 @@ MAX_CHANGE_LINES_PER_DOC = 50
 
 TIMEOUT = 15
 SLEEP_SECONDS = 0.2
+UPDATE_ENV_TARGET_ON_CREATE = True
 # ==========================================================
 
 
@@ -171,7 +173,14 @@ def save_registry(path: str, registry: dict) -> None:
         json.dump(registry, f, ensure_ascii=False, indent=2)
 
 
-def ensure_doc_entry(registry: dict, docid: str, admin_userid: str, doc_name: str = "", url: str = "") -> None:
+def ensure_doc_entry(
+    registry: dict,
+    docid: str,
+    admin_userid: str,
+    doc_name: str = "",
+    url: str = "",
+    env_profile: str = "",
+) -> None:
     """确保 registry 里存在 docid 条目（MODE=0 也能同步）。"""
     docs = registry.setdefault("docs", {})
     if docid not in docs:
@@ -180,6 +189,7 @@ def ensure_doc_entry(registry: dict, docid: str, admin_userid: str, doc_name: st
             "doc_name": doc_name,
             "url": url,
             "admin_userid": admin_userid,
+            "env_profile": env_profile,
             "created_at": now_str() if doc_name else "",
             "last_sync_at": "",
             "sheets": {}
@@ -192,6 +202,113 @@ def ensure_doc_entry(registry: dict, docid: str, admin_userid: str, doc_name: st
             docs[docid]["url"] = url
         if admin_userid and not docs[docid].get("admin_userid"):
             docs[docid]["admin_userid"] = admin_userid
+        if env_profile and not docs[docid].get("env_profile"):
+            docs[docid]["env_profile"] = env_profile
+
+
+def update_env_value(lines: list[str], key: str, value: str) -> list[str]:
+    """更新 .env 中的单个变量；不存在则追加。"""
+    found = False
+    updated: list[str] = []
+    for line in lines:
+        if line.strip().startswith("#") or "=" not in line:
+            updated.append(line)
+            continue
+        old_key = line.split("=", 1)[0].strip()
+        if old_key == key:
+            updated.append(f"{key}={value}")
+            found = True
+        else:
+            updated.append(line)
+    if not found:
+        updated.append(f"{key}={value}")
+    return updated
+
+
+def write_profile_target_to_env(profile: str, docid: str, sheet_id: str, sheet_title: str) -> None:
+    """把新建表格的目标 docid/sheet_id 写回当前公司配置，方便 B02 直接同步。"""
+    if not UPDATE_ENV_TARGET_ON_CREATE or not profile:
+        return
+
+    normalized_profile = "".join(ch if ch.isalnum() else "_" for ch in profile.upper()).strip("_")
+    env_path = PROJECT_ROOT / ".env"
+    if not env_path.exists():
+        return
+
+    lines = env_path.read_text(encoding="utf-8").splitlines()
+    replacements = {
+        f"WEDOC_{normalized_profile}_DOCID": docid,
+        f"WEDOC_{normalized_profile}_SHEET_ID": sheet_id,
+        f"WEDOC_{normalized_profile}_DOC_NAME": DOC_NAME,
+        f"WEDOC_{normalized_profile}_SHEET_TITLE": sheet_title,
+        f"SMARTSHEET_{normalized_profile}_ID": docid,
+        f"SMARTSHEET_{normalized_profile}_SHEET_ID": sheet_id,
+    }
+    for key, value in replacements.items():
+        lines = update_env_value(lines, key, value)
+    env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"\n=== .env 已更新当前公司目标表格：WECOM_ENV_PROFILE={profile} ===")
+    print(f"doc_name={DOC_NAME} | sheet_title={sheet_title}")
+
+
+def mark_profile_access(registry: dict, docid: str, profile: str, status: str, error: str = "") -> None:
+    """记录某个公司 profile 是否能访问该 doc，避免下次反复扫无效 docid。"""
+    if not profile:
+        return
+    doc = (registry.get("docs") or {}).get(docid)
+    if not doc:
+        return
+    access = doc.setdefault("profile_access", {})
+    access[profile] = {
+        "status": status,
+        "checked_at": now_str(),
+        "error": error,
+    }
+
+
+def is_invalid_docid_error(error: str) -> bool:
+    return "301085" in error or "invalid docid" in error.lower()
+
+
+def hydrate_profile_access_from_errors(registry: dict, profile: str) -> None:
+    """把上一次中断前已保存的 invalid docid 错误转成 profile 访问状态。"""
+    if not profile:
+        return
+    for item in registry.get("sync_errors") or []:
+        docid = str(item.get("docid") or "")
+        error = str(item.get("error") or "")
+        if docid and is_invalid_docid_error(error):
+            mark_profile_access(registry, docid, profile, "invalid_docid", error)
+
+
+def should_skip_for_profile(registry: dict, docid: str, profile: str) -> bool:
+    if not profile:
+        return False
+    doc = (registry.get("docs") or {}).get(docid) or {}
+    access = (doc.get("profile_access") or {}).get(profile) or {}
+    return access.get("status") in {"invalid_docid", "no_access"}
+
+
+def looks_like_docid(value: str) -> bool:
+    text = str(value or "").strip()
+    return text.startswith("dc") and len(text) > 20
+
+
+def profile_target_docids(profile: str) -> list[str]:
+    """读取当前 profile 在 .env 中显式配置的目标 docid。"""
+    targets = [
+        get_profiled_env("WEDOC_DOCID", namespace="WECOM", profile=profile, fallback_legacy=not bool(profile)),
+        get_profiled_env("SMARTSHEET_ID", namespace="WECOM", profile=profile, fallback_legacy=not bool(profile)),
+    ]
+    return list(dict.fromkeys(docid for docid in targets if looks_like_docid(docid)))
+
+
+def doc_matches_active_profile(registry: dict, docid: str, profile: str) -> bool:
+    """有 profile 时只自动刷新归属于该 profile 的 doc。"""
+    if not profile:
+        return True
+    doc = (registry.get("docs") or {}).get(docid) or {}
+    return str(doc.get("env_profile") or "").strip() == profile
 
 
 def build_sheet_map_from_registry(registry_doc: dict) -> dict:
@@ -435,14 +552,32 @@ def run_mode_create(token: str, admin_userid: str) -> str:
         print(f"add_sheet: {title} => errcode={resp.get('errcode')} errmsg={resp.get('errmsg','')}")
 
     registry = load_registry(REGISTRY_PATH)
-    ensure_doc_entry(registry, docid, admin_userid, doc_name=DOC_NAME, url=url)
+    ensure_doc_entry(registry, docid, admin_userid, doc_name=DOC_NAME, url=url, env_profile=ACTIVE_PROFILE)
 
     cloud_sheets = get_sheets(token, docid)
     diff = sync_sheets_to_registry_with_diff(registry, docid, cloud_sheets)
     save_registry(REGISTRY_PATH, registry)
+    inventory = export_document_inventory(Path(REGISTRY_PATH))
+
+    sheet_id_for_env = ""
+    sheet_title_for_env = ""
+    normalized_sheets = [normalize_sheet_item(item) for item in cloud_sheets]
+    for title in SHEET_TITLES:
+        for item in normalized_sheets:
+            if item.get("title") == title:
+                sheet_id_for_env = str(item.get("sheet_id") or "")
+                sheet_title_for_env = str(item.get("title") or "")
+                break
+        if sheet_id_for_env:
+            break
+    if not sheet_id_for_env and normalized_sheets:
+        sheet_id_for_env = str(normalized_sheets[0].get("sheet_id") or "")
+        sheet_title_for_env = str(normalized_sheets[0].get("title") or "")
+    write_profile_target_to_env(ACTIVE_PROFILE, docid, sheet_id_for_env, sheet_title_for_env)
 
     print("\n=== registry saved ===")
     print("registry_path:", os.path.abspath(REGISTRY_PATH))
+    print("document_inventory:", inventory.get("latest_xlsx_path", ""))
     print_diff_log(1, 1, docid, DOC_NAME, diff)
 
     maybe_pull_records(token, registry, docid)
@@ -455,13 +590,26 @@ def run_mode_sync_all(token: str, admin_userid: str) -> None:
     可选：如果配置了 TARGET_DOCID，则只刷新那个 docid。
     """
     registry = load_registry(REGISTRY_PATH)
+    hydrate_profile_access_from_errors(registry, ACTIVE_PROFILE)
     docs = registry.get("docs") or {}
 
     if TARGET_DOCID.strip():
         docids = [TARGET_DOCID.strip()]
-        ensure_doc_entry(registry, docids[0], admin_userid)
+        ensure_doc_entry(registry, docids[0], admin_userid, env_profile=ACTIVE_PROFILE)
     else:
-        docids = list(docs.keys())
+        env_target_docids = profile_target_docids(ACTIVE_PROFILE)
+        docids = [
+            docid
+            for docid in docs.keys()
+            if doc_matches_active_profile(registry, docid, ACTIVE_PROFILE)
+            and not should_skip_for_profile(registry, docid, ACTIVE_PROFILE)
+        ]
+        for docid in env_target_docids:
+            ensure_doc_entry(registry, docid, admin_userid, env_profile=ACTIVE_PROFILE)
+            if docid not in docids:
+                docids.append(docid)
+        if env_target_docids:
+            save_registry(REGISTRY_PATH, registry)
 
     if not docids:
         raise RuntimeError(
@@ -473,12 +621,17 @@ def run_mode_sync_all(token: str, admin_userid: str) -> None:
     print("=== sync start ===")
     print("registry_path:", os.path.abspath(REGISTRY_PATH))
     print("doc_count:", len(docids))
+    print("env_target_doc_count:", len(profile_target_docids(ACTIVE_PROFILE)))
+    skipped_count = len(docs) - len(docids) if not TARGET_DOCID.strip() else 0
+    if skipped_count:
+        print("skipped_invalid_for_profile:", skipped_count)
 
     errors = []
     for idx, docid in enumerate(docids, start=1):
         try:
-            ensure_doc_entry(registry, docid, admin_userid)
+            ensure_doc_entry(registry, docid, admin_userid, env_profile=ACTIVE_PROFILE)
             cloud_sheets = get_sheets(token, docid)
+            mark_profile_access(registry, docid, ACTIVE_PROFILE, "ok")
             diff = sync_sheets_to_registry_with_diff(registry, docid, cloud_sheets)
             save_registry(REGISTRY_PATH, registry)
 
@@ -491,17 +644,25 @@ def run_mode_sync_all(token: str, admin_userid: str) -> None:
             time.sleep(SLEEP_SECONDS)
 
         except Exception as e:
-            errors.append({"docid": docid, "error": str(e)})
+            error_text = str(e)
+            if is_invalid_docid_error(error_text):
+                mark_profile_access(registry, docid, ACTIVE_PROFILE, "invalid_docid", error_text)
+                save_registry(REGISTRY_PATH, registry)
+            errors.append({"docid": docid, "error": error_text})
             print(f"[{idx}/{len(docids)}] FAIL docid={docid} error={e}")
 
     if errors:
         registry.setdefault("sync_errors", [])
         registry["sync_errors"] = [{"time": now_str(), **x} for x in errors][-200:]
         save_registry(REGISTRY_PATH, registry)
+        inventory = export_document_inventory(Path(REGISTRY_PATH))
         print("\n=== sync finished with errors ===")
+        print("document_inventory:", inventory.get("latest_xlsx_path", ""))
         print(json.dumps(errors, ensure_ascii=False, indent=2))
     else:
+        inventory = export_document_inventory(Path(REGISTRY_PATH))
         print("\n=== sync finished: all OK ===")
+        print("document_inventory:", inventory.get("latest_xlsx_path", ""))
 
 
 # =========================

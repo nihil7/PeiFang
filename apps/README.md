@@ -11,12 +11,16 @@
 
 ## 使用建议
 
-| 场景 | 入口 |
+| 场景 | 日常入口 |
 |---|---|
-| 想从企业微信拉取表格数据 | `wecom_smartsheet_qiyeweixin/B02_wecom_smartsheet_sync_qiyeweixin.py` |
-| 想从飞书多维表格拉取数据 | `feishu_bitable_feishu/F01_feishu_bitable_sync_feishu.py` |
-| 想生成排产结果 | 依次运行 `schedule_paichan/B05A`、`B05B`、`B06` |
-| 想保存飞书群历史消息 | `feishu_local_bot_feishu/run_history_sync.py` |
+| 企业微信标准同步 | `wecom_smartsheet_qiyeweixin/B00A_wecom_smartsheet_manager_qiyeweixin.py --mode 0 --non-interactive` |
+| 企业微信双公司同步排错 | `wecom_smartsheet_qiyeweixin/B02A_wecom_smartsheet_sync_two_companies_qiyeweixin.py` |
+| 飞书多维表格同步 | `feishu_bitable_feishu/F01_feishu_bitable_sync_feishu.py` |
+| 生成排产结果 | 依次运行 `schedule_paichan/B05A`、`schedule_paichan/B05B` |
+| 填充 Excel 排产卡片 | `schedule_paichan/B06`，仅 Windows + Excel 需要 |
+| 保存飞书群历史消息 | `feishu_local_bot_feishu/run_history_sync.py` |
+
+其他拆分脚本主要用于单步排错、字段检查或兼容旧流程，日常不用逐个打开。
 
 ## 子目录文档
 

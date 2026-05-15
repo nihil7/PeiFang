@@ -15,7 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 os.chdir(PROJECT_ROOT)
 
-from peifang_core.wecom import sync_smartsheet
+from peifang_core.wecom import sync_all_smartsheets, sync_smartsheet
 
 
 def main() -> None:
@@ -25,13 +25,42 @@ def main() -> None:
     parser.add_argument("--mode", choices=["auto", "full", "recent", "verify"], default="full")
     parser.add_argument("--recent-limit", type=int, default=50)
     parser.add_argument("--verify-hours", type=int, default=24)
+    parser.add_argument("--all", action="store_true", help="同步当前公司可发现的全部智能表格和全部工作表")
+    parser.add_argument("--profile", default="", help="临时指定一个 WECOM_ENV_PROFILE，不改写 .env")
+    parser.add_argument("--profiles", default="", help="逗号/分号分隔多个 WECOM_ENV_PROFILE，例如 COMPANY_A,COMPANY_B")
+    parser.add_argument("--include-invalid", action="store_true", help="包含已确认 invalid_docid/no_access 的历史登记表")
     args = parser.parse_args()
 
-    summary = sync_smartsheet(
-        mode=args.mode,
-        recent_limit=args.recent_limit,
-        verify_interval_hours=args.verify_hours,
-    )
+    profile_text = args.profiles or args.profile
+    profiles = [
+        item.strip()
+        for part in profile_text.split(";")
+        for item in part.split(",")
+        if item.strip()
+    ]
+    if not profiles:
+        profiles = [os.getenv("WECOM_ENV_PROFILE", "")]
+
+    results = []
+    for profile in profiles:
+        if profile:
+            os.environ["WECOM_ENV_PROFILE"] = profile
+        if args.all:
+            summary = sync_all_smartsheets(
+                mode=args.mode,
+                recent_limit=args.recent_limit,
+                verify_interval_hours=args.verify_hours,
+                include_invalid_docids=args.include_invalid,
+            )
+        else:
+            summary = sync_smartsheet(
+                mode=args.mode,
+                recent_limit=args.recent_limit,
+                verify_interval_hours=args.verify_hours,
+            )
+        results.append(summary)
+
+    summary = results[0] if len(results) == 1 else {"profile_count": len(results), "results": results}
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 

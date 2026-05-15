@@ -27,6 +27,7 @@ from .common import (
     stable_record_id,
     write_json,
 )
+from .document_inventory import export_document_inventory
 
 
 FEISHU_API_BASE = "https://open.feishu.cn/open-apis"
@@ -135,6 +136,12 @@ def resolve_selection(profile: str | None = None) -> dict[str, str]:
     table_id = get_profiled_env("TABLE_ID", namespace="FEISHU", profile=profile)
     wiki_url = get_profiled_env("WIKI_URL", namespace="FEISHU", profile=profile)
     wiki_node_token = get_profiled_env("WIKI_NODE_TOKEN", namespace="FEISHU", profile=profile)
+    app_name = get_profiled_env("APP_NAME", namespace="FEISHU", profile=profile) or get_profiled_env(
+        "FEISHU_APP_NAME", namespace="FEISHU", profile=profile
+    )
+    table_name = get_profiled_env("TABLE_NAME", namespace="FEISHU", profile=profile) or get_profiled_env(
+        "FEISHU_TABLE_NAME", namespace="FEISHU", profile=profile
+    )
 
     if not app_id or not app_secret:
         raise RuntimeError("缺少 APP_ID / APP_SECRET")
@@ -151,11 +158,15 @@ def resolve_selection(profile: str | None = None) -> dict[str, str]:
         raise RuntimeError("无法解析 APP_TOKEN / TABLE_ID")
 
     return {
+        "env_profile": profile,
         "api_base": api_base,
         "app_id": app_id,
         "app_secret": app_secret,
         "app_token": app_token,
         "table_id": table_id,
+        "wiki_url": wiki_url or "",
+        "app_name": app_name or "",
+        "table_name": table_name or "",
     }
 
 
@@ -243,6 +254,10 @@ def sync_bitable(mode: str = "auto", recent_limit: int = 50, verify_interval_hou
     state["last_effective_mode"] = effective_mode
     state["last_recent_limit"] = recent_limit
     state["last_run_at"] = now_iso()
+    state["env_profile"] = selection.get("env_profile") or ""
+    state["wiki_url"] = selection.get("wiki_url") or ""
+    state["app_name"] = selection.get("app_name") or ""
+    state["table_name"] = selection.get("table_name") or ""
     state["strategy_note"] = "Feishu current implementation fetches records, sorts locally, and merges recent items by record_id."
     write_json(paths["state"], state)
     write_json(paths["history_dir"] / f"summary_{now_tag()}.json", summary)
@@ -250,5 +265,6 @@ def sync_bitable(mode: str = "auto", recent_limit: int = 50, verify_interval_hou
     summary["fields_path"] = str(paths["fields_latest"])
     summary["merged_path"] = str(paths["merged_latest"])
     summary["state_path"] = str(paths["state"])
+    summary["document_inventory"] = export_document_inventory()
     return summary
 

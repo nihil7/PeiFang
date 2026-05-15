@@ -2,6 +2,19 @@
 
 `output/` 保存同步和排产流程生成的输出文件。这里通常包含 JSON、CSV、Excel、HTML 等运行产物。
 
+## 日常只看 latest
+
+日常确认结果时优先打开：
+
+```text
+output/latest/schedule_web.html
+output/latest/document_inventory.xlsx
+output/latest/wecom_two_company_sync_summary.json
+output/latest/tasks_prepared.json
+```
+
+`output/archive/` 只用于追溯历史版本，不作为日常入口。带时间戳的文件如果出现在 `output/` 根目录，应由现有输出清理逻辑归档到 `output/archive/`。
+
 ## 固定最新结果
 
 排产脚本会自动维护 `output/latest/`，日常查看优先打开这里：

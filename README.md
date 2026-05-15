@@ -4,36 +4,36 @@
 
 项目说明统一放在各级 `README.md` 中；原来的 `A00_目录说明.txt` 已不再需要，避免同一份说明维护两遍。
 
-## 快速入口
+## 日常只看这几个入口
 
-| 任务 | 建议入口 |
+| 场景 | 日常入口 |
 |---|---|
-| 同步企业微信智能表格 | `apps/wecom_smartsheet_qiyeweixin/B02_wecom_smartsheet_sync_qiyeweixin.py` |
-| 同步飞书多维表格 | `apps/feishu_bitable_feishu/F01_feishu_bitable_sync_feishu.py` |
+| 企业微信标准同步 | `apps/wecom_smartsheet_qiyeweixin/B00A_wecom_smartsheet_manager_qiyeweixin.py --mode 0 --non-interactive` |
 | 生成标准化排产任务 | `apps/schedule_paichan/B05A_schedule_prepare_paichan.py` |
-| 生成排产网页看板和布局 | `apps/schedule_paichan/B05B_schedule_build_frame_paichan.py` |
-| 填充 Excel 排产卡片，可选 | `apps/schedule_paichan/B06_schedule_fill_cards_paichan.py` |
-| 拉取飞书群消息 | `apps/feishu_local_bot_feishu/run_history_sync.py` |
+| 生成排产网页看板 | `apps/schedule_paichan/B05B_schedule_build_frame_paichan.py` |
 
-## 推荐运行顺序
+其他脚本主要用于单步排错、字段检查、飞书同步或 Excel 增强导出，日常不用逐个打开。
+
+## 推荐日常命令
 
 1. 复制 `.env.example` 为 `.env`，填写企业微信或飞书凭证。
 2. 如需多公司配置，设置 `WECOM_ENV_PROFILE=COMPANY_A` 或 `COMPANY_B`，飞书可设置 `FEISHU_ENV_PROFILE`。
 3. 先同步数据，再运行排产链路。
 
 ```powershell
-python apps/wecom_smartsheet_qiyeweixin/B02_wecom_smartsheet_sync_qiyeweixin.py
-python apps/feishu_bitable_feishu/F01_feishu_bitable_sync_feishu.py --mode auto
+python apps/wecom_smartsheet_qiyeweixin/B00A_wecom_smartsheet_manager_qiyeweixin.py --mode 0 --non-interactive
 python apps/schedule_paichan/B05A_schedule_prepare_paichan.py
 python apps/schedule_paichan/B05B_schedule_build_frame_paichan.py
 ```
 
-Linux 服务器环境下通常跑到 `B05B` 即可，使用生成的 `schedule_web_*.html` 作为主排产看板。`B06` 依赖 Windows Excel COM，适合本机需要 Excel 文件时再运行。
+本项目目前按本地电脑运行设计。通常跑到 `B05B` 即可，使用生成的网页看板作为主排产结果。`B06` 依赖 Windows Excel COM，只有需要可编辑 Excel 卡片时再运行。
 
 日常打开最新结果时，优先看固定文件：
 
 ```text
 output/latest/schedule_web.html
+output/latest/document_inventory.xlsx
+output/latest/wecom_two_company_sync_summary.json
 ```
 
 企业微信完整同步后，人工核对原始表格数据可打开：
@@ -43,6 +43,17 @@ output/latest/wecom_smartsheet_full.xlsx
 ```
 
 带时间戳的历史输出会自动归档到 `output/archive/`，避免 `output/` 根目录越跑越乱。
+
+## 同步问题优先检查
+
+| 顺序 | 文件 | 看什么 |
+|---|---|---|
+| 1 | `data/wecom/manual_smartsheet_links.xlsx` | 新表链接是否已填写并启用 |
+| 2 | `smartsheet_registry.json` | `docid`、`sheet_id`、`env_profile`、失效状态 |
+| 3 | `data/wecom/smartsheet/<docid>/<sheet_id>/fields_latest.json` | 字段结构是否已同步 |
+| 4 | `data/wecom/smartsheet/<docid>/<sheet_id>/records_merged_latest.json` | 记录是否已同步 |
+| 5 | `output/latest/wecom_two_company_sync_summary.json` | 本次同步是否有错误 |
+| 6 | `output/latest/document_inventory.xlsx` | 人工核对总览 |
 
 ## 目录地图
 
@@ -73,7 +84,7 @@ output/latest/wecom_smartsheet_full.xlsx
 
 | 平台 | 入口 | 缓存路径 | 策略 |
 |---|---|---|---|
-| 企业微信智能表格 | `apps/wecom_smartsheet_qiyeweixin/B02_wecom_smartsheet_sync_qiyeweixin.py` | `data/wecom/smartsheet/<docid>/<sheetid>/` | 首次全量；后续可取最近记录合并；定期全量校验 |
+| 企业微信智能表格 | `apps/wecom_smartsheet_qiyeweixin/B00A_wecom_smartsheet_manager_qiyeweixin.py --mode 0 --non-interactive` | `data/wecom/smartsheet/<docid>/<sheetid>/` | 导入人工链接；验证公司归属；同步双公司；刷新 latest |
 | 飞书多维表格 | `apps/feishu_bitable_feishu/F01_feishu_bitable_sync_feishu.py` | `data/feishu/bitable/<app_token>/<table_id>/` | 首次全量；后续可取最近记录合并；定期全量校验 |
 
 ## 多公司环境配置
